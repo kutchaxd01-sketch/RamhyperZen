@@ -1,0 +1,1176 @@
+-- =========================================================================
+-- ⚡ RamhyperZen — Ultimate Exploit & Cheat Suite ⚡
+-- Game: [BOSS] +1 Loot To Forge
+-- Features:
+--   • OP World Boss Killer (ฆ่าบอสโลกโหดๆ)
+--   • Auto Dungeon / Ice Tower (ลงดันเจี้ยนหอคอยน้ำแข็ง ไต่ไปชั้นล่าสุด)
+--   • Fast Train Power at Best Tier (Area 6 x10 Multiplier)
+--   • Safe Sell Equipment (ขายเฉพาะอุปกรณ์ขยะ ไม่ขายแร่ Ore 100%)
+--   • Working God Mode (เลือดอมตะไม่ลด)
+--   • Universal Executor Support (Solara, Wave, Delta, Fluxus, Codex, Arceus)
+-- =========================================================================
+
+-- ป้องกันการรันซ้ำ ซ้อนทับ
+pcall(function()
+    if _G.RamhyperZenUI then
+        _G.RamhyperZenUI:Destroy()
+    end
+    local old = game:GetService("Players").LocalPlayer.PlayerGui:FindFirstChild("RamhyperZenUI")
+    if old then old:Destroy() end
+end)
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- Safe Parent สำหรับทุก Executor (gethui หรือ PlayerGui)
+local function GetSafeParent()
+    if gethui then
+        local s, h = pcall(gethui)
+        if s and h then return h end
+    end
+    return PlayerGui
+end
+
+local GuiParent = GetSafeParent()
+
+-- Global Settings Table
+_G.RamhyperZenSettings = _G.RamhyperZenSettings or {
+    AutoStage = false,
+    TargetStage = 27,
+    AutoOreMagnet = false,
+    AutoFastForge = false,
+    ForgeType = "Weapon", -- "Weapon" or "Armor"
+    AutoTrain = false,
+    AutoRebirth = false,
+    AutoUpgrades = false,
+    GodMode = false,
+    InfiniteJump = false,
+    SpeedHack = false,
+    SpeedValue = 75,
+}
+local Cheats = _G.RamhyperZenSettings
+
+-- Helper Remote Fetcher
+local function GetR(category, name)
+    local r = ReplicatedStorage:FindFirstChild("Remote")
+    if r and r:FindFirstChild(category) and r[category]:FindFirstChild(name) then
+        return r[category][name]
+    end
+    return nil
+end
+
+-- =========================================================================
+--                          1. GUI CREATION (FIRST)
+-- =========================================================================
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "RamhyperZenUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = GuiParent
+_G.RamhyperZenUI = ScreenGui
+
+-- Main Frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 520, 0, 390)
+MainFrame.Position = UDim2.new(0.5, -260, 0.5, -195)
+MainFrame.BackgroundColor3 = Color3.fromRGB(16, 18, 26)
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+
+local MainCorner = Instance.new("UICorner")
+MainCorner.CornerRadius = UDim.new(0, 10)
+MainCorner.Parent = MainFrame
+
+local MainStroke = Instance.new("UIStroke")
+MainStroke.Color = Color3.fromRGB(60, 70, 95)
+MainStroke.Thickness = 1.4
+MainStroke.Parent = MainFrame
+
+-- Title Bar (Draggable)
+local TitleBar = Instance.new("Frame")
+TitleBar.Name = "TitleBar"
+TitleBar.Size = UDim2.new(1, 0, 0, 44)
+TitleBar.BackgroundColor3 = Color3.fromRGB(12, 14, 20)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = MainFrame
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 10)
+TitleCorner.Parent = TitleBar
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Name = "TitleLabel"
+TitleLabel.Size = UDim2.new(0.75, 0, 1, 0)
+TitleLabel.Position = UDim2.new(0, 16, 0, 0)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.Text = "⚡ RamhyperZen — Ultimate Hub"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
+TitleLabel.TextSize = 14
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = TitleBar
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Name = "CloseBtn"
+CloseBtn.Size = UDim2.new(0, 28, 0, 28)
+CloseBtn.Position = UDim2.new(1, -38, 0.5, -14)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(220, 50, 65)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+CloseBtn.TextSize = 13
+CloseBtn.Parent = TitleBar
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(0, 6)
+CloseCorner.Parent = CloseBtn
+
+CloseBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+end)
+
+-- Dragging Logic
+local dragging, dragInput, dragStart, startPos
+TitleBar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+TitleBar.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- Floating Screen Toggle Button
+local FloatingBtn = Instance.new("TextButton")
+FloatingBtn.Name = "RamhyperZenFloatingBtn"
+FloatingBtn.Size = UDim2.new(0, 54, 0, 54)
+FloatingBtn.Position = UDim2.new(0, 16, 0.5, -27)
+FloatingBtn.BackgroundColor3 = Color3.fromRGB(20, 24, 34)
+FloatingBtn.Font = Enum.Font.GothamBold
+FloatingBtn.Text = "⚡\nZEN"
+FloatingBtn.TextColor3 = Color3.fromRGB(255, 215, 0)
+FloatingBtn.TextSize = 11
+FloatingBtn.Parent = ScreenGui
+
+local FCorner = Instance.new("UICorner")
+FCorner.CornerRadius = UDim.new(0, 27)
+FCorner.Parent = FloatingBtn
+
+local FStroke = Instance.new("UIStroke")
+FStroke.Color = Color3.fromRGB(255, 215, 0)
+FStroke.Thickness = 1.6
+FStroke.Parent = FloatingBtn
+
+FloatingBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+-- Sidebar Tabs
+local TabHolder = Instance.new("Frame")
+TabHolder.Name = "TabHolder"
+TabHolder.Size = UDim2.new(0, 136, 1, -44)
+TabHolder.Position = UDim2.new(0, 0, 0, 44)
+TabHolder.BackgroundColor3 = Color3.fromRGB(13, 15, 22)
+TabHolder.BorderSizePixel = 0
+TabHolder.Parent = MainFrame
+
+local TabListLayout = Instance.new("UIListLayout")
+TabListLayout.Padding = UDim.new(0, 6)
+TabListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+TabListLayout.Parent = TabHolder
+
+local TabPadding = Instance.new("UIPadding")
+TabPadding.PaddingTop = UDim.new(0, 10)
+TabPadding.Parent = TabHolder
+
+-- Pages Container
+local ContentContainer = Instance.new("Frame")
+ContentContainer.Name = "ContentContainer"
+ContentContainer.Size = UDim2.new(1, -144, 1, -52)
+ContentContainer.Position = UDim2.new(0, 140, 0, 48)
+ContentContainer.BackgroundTransparency = 1
+ContentContainer.Parent = MainFrame
+
+local Pages = {}
+
+local function CreatePage(pageName)
+    local Page = Instance.new("ScrollingFrame")
+    Page.Name = pageName
+    Page.Size = UDim2.new(1, 0, 1, 0)
+    Page.BackgroundTransparency = 1
+    Page.BorderSizePixel = 0
+    Page.ScrollBarThickness = 4
+    Page.ScrollBarImageColor3 = Color3.fromRGB(65, 75, 105)
+    Page.Visible = false
+    Page.Parent = ContentContainer
+
+    local PageLayout = Instance.new("UIListLayout")
+    PageLayout.Padding = UDim.new(0, 8)
+    PageLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    PageLayout.Parent = Page
+
+    local PagePad = Instance.new("UIPadding")
+    PagePad.PaddingTop = UDim.new(0, 4)
+    PagePad.PaddingBottom = UDim.new(0, 14)
+    PagePad.Parent = Page
+
+    Pages[pageName] = Page
+    return Page
+end
+
+-- Component: Toggle Frame
+local function CreateToggle(parent, titleText, descText, cheatKey, callback)
+    local ToggleFrame = Instance.new("Frame")
+    ToggleFrame.Name = titleText .. "_Toggle"
+    ToggleFrame.Size = UDim2.new(0.96, 0, 0, 52)
+    ToggleFrame.BackgroundColor3 = Color3.fromRGB(24, 28, 38)
+    ToggleFrame.BorderSizePixel = 0
+    ToggleFrame.Parent = parent
+
+    local TCorner = Instance.new("UICorner")
+    TCorner.CornerRadius = UDim.new(0, 8)
+    TCorner.Parent = ToggleFrame
+
+    local TStroke = Instance.new("UIStroke")
+    TStroke.Color = Color3.fromRGB(42, 48, 65)
+    TStroke.Thickness = 1
+    TStroke.Parent = ToggleFrame
+
+    local Title = Instance.new("TextLabel")
+    Title.Name = "Title"
+    Title.Size = UDim2.new(0.68, 0, 0, 20)
+    Title.Position = UDim2.new(0, 12, 0, 6)
+    Title.BackgroundTransparency = 1
+    Title.Font = Enum.Font.GothamBold
+    Title.Text = titleText
+    Title.TextColor3 = Color3.fromRGB(240, 240, 240)
+    Title.TextSize = 12
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.Parent = ToggleFrame
+
+    local Desc = Instance.new("TextLabel")
+    Desc.Name = "Desc"
+    Desc.Size = UDim2.new(0.68, 0, 0, 18)
+    Desc.Position = UDim2.new(0, 12, 0, 26)
+    Desc.BackgroundTransparency = 1
+    Desc.Font = Enum.Font.Gotham
+    Desc.Text = descText
+    Desc.TextColor3 = Color3.fromRGB(145, 150, 170)
+    Desc.TextSize = 10
+    Desc.TextXAlignment = Enum.TextXAlignment.Left
+    Desc.Parent = ToggleFrame
+
+    local Switch = Instance.new("TextButton")
+    Switch.Name = "Switch"
+    Switch.Size = UDim2.new(0, 54, 0, 26)
+    Switch.Position = UDim2.new(1, -66, 0.5, -13)
+    Switch.BackgroundColor3 = Cheats[cheatKey] and Color3.fromRGB(38, 185, 105) or Color3.fromRGB(55, 60, 75)
+    Switch.Font = Enum.Font.GothamBold
+    Switch.Text = Cheats[cheatKey] and "ON" or "OFF"
+    Switch.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Switch.TextSize = 11
+    Switch.Parent = ToggleFrame
+
+    local SwitchCorner = Instance.new("UICorner")
+    SwitchCorner.CornerRadius = UDim.new(0, 13)
+    SwitchCorner.Parent = Switch
+
+    Switch.MouseButton1Click:Connect(function()
+        Cheats[cheatKey] = not Cheats[cheatKey]
+        local isEnabled = Cheats[cheatKey]
+        TweenService:Create(Switch, TweenInfo.new(0.2), {
+            BackgroundColor3 = isEnabled and Color3.fromRGB(38, 185, 105) or Color3.fromRGB(55, 60, 75)
+        }):Play()
+        Switch.Text = isEnabled and "ON" or "OFF"
+        if callback then callback(isEnabled) end
+    end)
+end
+
+-- Component: Action Button
+local function CreateButton(parent, titleText, descText, btnText, callback)
+    local BtnFrame = Instance.new("Frame")
+    BtnFrame.Name = titleText .. "_BtnFrame"
+    BtnFrame.Size = UDim2.new(0.96, 0, 0, 52)
+    BtnFrame.BackgroundColor3 = Color3.fromRGB(24, 28, 38)
+    BtnFrame.BorderSizePixel = 0
+    BtnFrame.Parent = parent
+
+    local BCorner = Instance.new("UICorner")
+    BCorner.CornerRadius = UDim.new(0, 8)
+    BCorner.Parent = BtnFrame
+
+    local BStroke = Instance.new("UIStroke")
+    BStroke.Color = Color3.fromRGB(42, 48, 65)
+    BStroke.Thickness = 1
+    BStroke.Parent = BtnFrame
+
+    local Title = Instance.new("TextLabel")
+    Title.Name = "Title"
+    Title.Size = UDim2.new(0.65, 0, 0, 20)
+    Title.Position = UDim2.new(0, 12, 0, 6)
+    Title.BackgroundTransparency = 1
+    Title.Font = Enum.Font.GothamBold
+    Title.Text = titleText
+    Title.TextColor3 = Color3.fromRGB(240, 240, 240)
+    Title.TextSize = 12
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.Parent = BtnFrame
+
+    local Desc = Instance.new("TextLabel")
+    Desc.Name = "Desc"
+    Desc.Size = UDim2.new(0.65, 0, 0, 18)
+    Desc.Position = UDim2.new(0, 12, 0, 26)
+    Desc.BackgroundTransparency = 1
+    Desc.Font = Enum.Font.Gotham
+    Desc.Text = descText
+    Desc.TextColor3 = Color3.fromRGB(145, 150, 170)
+    Desc.TextSize = 10
+    Desc.TextXAlignment = Enum.TextXAlignment.Left
+    Desc.Parent = BtnFrame
+
+    local ActionBtn = Instance.new("TextButton")
+    ActionBtn.Name = "ActionBtn"
+    ActionBtn.Size = UDim2.new(0, 84, 0, 28)
+    ActionBtn.Position = UDim2.new(1, -96, 0.5, -14)
+    ActionBtn.BackgroundColor3 = Color3.fromRGB(50, 110, 225)
+    ActionBtn.Font = Enum.Font.GothamBold
+    ActionBtn.Text = btnText or "CLICK"
+    ActionBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ActionBtn.TextSize = 11
+    ActionBtn.Parent = BtnFrame
+
+    local ActionCorner = Instance.new("UICorner")
+    ActionCorner.CornerRadius = UDim.new(0, 6)
+    ActionCorner.Parent = ActionBtn
+
+    ActionBtn.MouseButton1Click:Connect(function()
+        ActionBtn.Text = "WAIT..."
+        ActionBtn.BackgroundColor3 = Color3.fromRGB(180, 140, 30)
+        task.spawn(function()
+            if callback then callback(ActionBtn, Desc) end
+            task.wait(0.4)
+            ActionBtn.Text = "DONE!"
+            ActionBtn.BackgroundColor3 = Color3.fromRGB(40, 180, 90)
+            task.wait(0.8)
+            ActionBtn.Text = btnText or "CLICK"
+            ActionBtn.BackgroundColor3 = Color3.fromRGB(50, 110, 225)
+        end)
+    end)
+end
+
+-- =========================================================================
+--                          2. SAFE SELL (NO ORE SOLD!)
+-- =========================================================================
+
+-- ฟังก์ชันขายเฉพาะอาวุธ/เกราะขยะ โดยไม่แตะต้อง Ore, Material, EnchStone 100%
+local function SafeSellNonEquipped()
+    local count = 0
+    pcall(function()
+        local getDataRF = GetR("Backpack", "GetDataRF")
+        local sellItemRE = GetR("Backpack", "TrySellItemRE")
+        if not getDataRF or not sellItemRE then return end
+
+        local data = getDataRF:InvokeServer()
+        if not data or not data.have then return end
+
+        local equiped = data.equiped or {}
+        local equipMap = {}
+        for _, eqUUID in pairs(equiped) do
+            equipMap[eqUUID] = true
+        end
+
+        for uuid, item in pairs(data.have) do
+            -- ป้องกัน Ore, Material, EnchStone ไม่ขายเด็ดขาด!
+            if item.Type ~= "Ore" and item.Type ~= "Material" and item.Type ~= "EnchStone" then
+                if not equipMap[uuid] and not item.Lock then
+                    sellItemRE:FireServer(uuid, item.Number or 1)
+                    count = count + 1
+                end
+            end
+        end
+    end)
+    return count
+end
+
+-- =========================================================================
+--                          3. PAGES & TABS
+-- =========================================================================
+
+-- 1. Tab: ต่อสู้ (Combat)
+local CombatPage = CreatePage("Combat")
+CreateToggle(CombatPage, "🚀 Auto Stage 27 (แร่สูงสุด)", "Clears Stage 27 endlessly for high tier ores", "AutoStage")
+CreateToggle(CombatPage, "💎 Auto Ore Magnet", "ดูดแร่และหินอัปเกรดทั้งหมดเข้าตัวอัตโนมัติ 100%", "AutoOreMagnet")
+
+-- =========================================================================
+--     2.1 ULTIMATE DUNGEON 46~50 & LATEST CLIMBER (เอาชนะดันเจี้ยน 100%)
+-- =========================================================================
+
+local isDungeonRunning = false
+local DungeonStatusUI = nil
+
+local function UpdateDungeonStatus(text)
+    if DungeonStatusUI then
+        pcall(function()
+            DungeonStatusUI.Text = text
+        end)
+    end
+end
+
+-- ตรวจสอบและดึงช่วงชั้นล่าสุด / ชั้นที่ผู้เล่นเลือกบนหน้าจอ (เช่น 46~50)
+local function GetTargetDungeonBracket()
+    local targetStart = 46
+    local targetEnd = 50
+
+    pcall(function()
+        for _, desc in ipairs(PlayerGui:GetDescendants()) do
+            if desc:IsA("GuiButton") or desc:IsA("TextLabel") then
+                local txt = desc.Text
+                if txt and txt ~= "" then
+                    local s, e = txt:match("(%d+)%s*~%s*(%d+)")
+                    if s and e then
+                        local sNum = tonumber(s)
+                        local eNum = tonumber(e)
+                        local isLocked = false
+                        local parent = desc.Parent
+                        if parent then
+                            if parent:FindFirstChild("Lock") or parent:FindFirstChild("lock") or parent:FindFirstChild("LockIcon") then
+                                isLocked = true
+                            end
+                        end
+                        -- ถ้าเป็นปุ่มที่ปลดล็อคแล้ว และเป็นชั้นที่สูงที่สุดที่พบ
+                        if not isLocked and sNum and sNum >= targetStart then
+                            targetStart = sNum
+                            targetEnd = eNum
+                        end
+                    end
+                end
+            end
+        end
+    end)
+
+    return {
+        StartRound = targetStart,
+        EndRound = targetEnd,
+        BracketStr = string.format("%d~%d", targetStart, targetEnd)
+    }
+end
+
+-- สังหารและรัวดาเมจ 9.99e18 ให้ศัตรูทั้งหมดในดันเจี้ยนทันที
+local function ClearAllDungeonEnemiesInstant()
+    local killRE = GetR("Attack", "KillEnemyRE")
+    local atkServiceRE = GetR("Attack", "AttackEnemyServiceRE")
+    local targets = {}
+
+    local folders = {
+        workspace:FindFirstChild("EnemyFolder"),
+        workspace:FindFirstChild("EnemyFolder_Server"),
+        workspace:FindFirstChild("Dungeon") and workspace.Dungeon:FindFirstChild("EnemyFolder"),
+        workspace:FindFirstChild("Dungeon") and workspace.Dungeon:FindFirstChild("Enemies"),
+        workspace:FindFirstChild("DungeonEnemies"),
+    }
+
+    for _, f in ipairs(folders) do
+        if f then
+            for _, b in ipairs(f:GetChildren()) do
+                if not b:GetAttribute("Dead") then
+                    table.insert(targets, b.Name)
+                    local hum = b:FindFirstChildOfClass("Humanoid")
+                    if hum and hum.Health > 0 then
+                        pcall(function() hum.Health = 0 end)
+                    end
+                end
+            end
+        end
+    end
+
+    for _, uuid in ipairs(targets) do
+        if killRE then killRE:FireServer(uuid) end
+        if atkServiceRE then
+            for _ = 1, 5 do
+                atkServiceRE:FireServer(
+                    {uuid},
+                    {Damage = 9.99e18, SkillID = "Weapon_ATK", Attacker = LocalPlayer},
+                    workspace:GetServerTimeNow()
+                )
+            end
+        end
+    end
+
+    return #targets
+end
+
+-- ดูดแร่และของรางวัลทั้งหมดที่ตกในดันเจี้ยน
+local function CollectDungeonLoot()
+    pcall(function()
+        local oreCache = workspace:FindFirstChild("OreCache")
+        local getOreRF = GetR("Stage", "GetOreRF")
+        local stoneRE = GetR("Stage", "GetEnhantStoneRE")
+        local claimRE = GetR("Stage", "ClaimedAllOreRE")
+        if oreCache and getOreRF then
+            for _, item in ipairs(oreCache:GetChildren()) do
+                getOreRF:InvokeServer(item.Name)
+                if stoneRE then stoneRE:FireServer(item.Name) end
+            end
+            if claimRE then claimRE:FireServer() end
+        end
+    end)
+end
+
+-- ฟังก์ชันหลัก: เอาชนะดันเจี้ยนตามช่วงชั้นที่ระบุ (เช่น 46 ถึง 50) แบบ 100%
+local function WinDungeonRounds(startRound, endRound, bracketStr, statusCallback)
+    if isDungeonRunning then return false end
+    isDungeonRunning = true
+
+    startRound = startRound or 46
+    endRound = endRound or 50
+    bracketStr = bracketStr or string.format("%d~%d", startRound, endRound)
+
+    local function update(txt)
+        UpdateDungeonStatus(txt)
+        if statusCallback then statusCallback(txt) end
+    end
+
+    local success = false
+    pcall(function()
+        local dunFolder = ReplicatedStorage:FindFirstChild("Remote") and ReplicatedStorage.Remote:FindFirstChild("Dungeon")
+        if not dunFolder then
+            update("❌ ไม่พบ Remote Dungeon!")
+            isDungeonRunning = false
+            return
+        end
+
+        local ticketRE = dunFolder:FindFirstChild("TryClaimDailyDunTicRE")
+        local intoRF = dunFolder:FindFirstChild("TryIntoDungeonRF")
+        local startRE = dunFolder:FindFirstChild("StartRoundRE")
+        local compRF = dunFolder:FindFirstChild("CompleteRoundRF")
+
+        -- 1. เคลมตั๋วประจำวันฟรีก่อนเสมอ
+        if ticketRE then ticketRE:FireServer() end
+        task.wait(0.2)
+
+        -- 2. ถ้ายังไม่อยู่ในดันเจี้ยน ให้กดเข้า
+        if LocalPlayer:GetAttribute("IntoFight") ~= "Dungeon" then
+            update(string.format("🚀 กำลังเข้าดันเจี้ยนชั้น %s...", bracketStr))
+
+            -- 2.1 คลิกเลือกปุ่มช่วงชั้นใน UI (เช่น ปุ่ม "46~50")
+            pcall(function()
+                for _, desc in ipairs(PlayerGui:GetDescendants()) do
+                    if desc:IsA("GuiButton") or desc:IsA("Frame") then
+                        local lbl = desc:FindFirstChildOfClass("TextLabel") or (desc:IsA("TextButton") and desc)
+                        if lbl and lbl.Text and lbl.Text:find(bracketStr) then
+                            local btn = desc:IsA("GuiButton") and desc or desc:FindFirstChildOfClass("GuiButton")
+                            if btn then
+                                if firesignal then
+                                    pcall(function() firesignal(btn.MouseButton1Click) end)
+                                    pcall(function() firesignal(btn.Activated) end)
+                                end
+                                pcall(function()
+                                    local VIM = game:GetService("VirtualInputManager")
+                                    local p = btn.AbsolutePosition
+                                    local s = btn.AbsoluteSize
+                                    VIM:SendMouseButtonEvent(p.X + s.X/2, p.Y + s.Y/2, 0, true, game, 0)
+                                    task.wait(0.04)
+                                    VIM:SendMouseButtonEvent(p.X + s.X/2, p.Y + s.Y/2, 0, false, game, 0)
+                                end)
+                            end
+                            break
+                        end
+                    end
+                end
+            end)
+            task.wait(0.25)
+
+            -- 2.2 คลิกปุ่ม "เริ่ม" สีเหลืองใน UI
+            pcall(function()
+                for _, desc in ipairs(PlayerGui:GetDescendants()) do
+                    if desc:IsA("GuiButton") then
+                        local txt = (desc:IsA("TextButton") and desc.Text) or ""
+                        local childTxt = desc:FindFirstChildOfClass("TextLabel") and desc:FindFirstChildOfClass("TextLabel").Text or ""
+                        if txt:find("เริ่ม") or childTxt:find("เริ่ม") or txt:find("Start") or childTxt:find("Start") then
+                            if firesignal then
+                                pcall(function() firesignal(desc.MouseButton1Click) end)
+                                pcall(function() firesignal(desc.Activated) end)
+                            end
+                            pcall(function()
+                                local VIM = game:GetService("VirtualInputManager")
+                                local p = desc.AbsolutePosition
+                                local s = desc.AbsoluteSize
+                                VIM:SendMouseButtonEvent(p.X + s.X/2, p.Y + s.Y/2, 0, true, game, 0)
+                                task.wait(0.04)
+                                VIM:SendMouseButtonEvent(p.X + s.X/2, p.Y + s.Y/2, 0, false, game, 0)
+                            end)
+                            break
+                        end
+                    end
+                end
+            end)
+
+            -- 2.3 ยิง Remote TryIntoDungeonRF สำรอง
+            if intoRF then
+                local tier = math.floor(endRound / 5)
+                pcall(function() intoRF:InvokeServer(tier) end)
+                pcall(function() intoRF:InvokeServer(startRound) end)
+                pcall(function() intoRF:InvokeServer() end)
+            end
+
+            -- รอตรวจสอบการเข้าสู่ Dungeon
+            local inFight = false
+            for _ = 1, 16 do
+                if LocalPlayer:GetAttribute("IntoFight") == "Dungeon" then
+                    inFight = true
+                    break
+                end
+                task.wait(0.25)
+            end
+
+            if not inFight then
+                update(string.format("⚠️ เข้าดันเจี้ยน %s ไม่สำเร็จ (ตั๋วอาจหมด)", bracketStr))
+                isDungeonRunning = false
+                return
+            end
+        end
+
+        update(string.format("⚔️ เข้าสู่ดันเจี้ยน %s สำเร็จ! กำลังเคลียร์ทุกรอบ...", bracketStr))
+
+        -- 3. ลูปเอาชนะรอบทั้งหมด (เช่น 46, 47, 48, 49, 50)
+        for curRound = startRound, endRound do
+            update(string.format("🔥 กำลังล้างบางรอบที่ %d / %d...", curRound, endRound))
+
+            -- 3.1 สั่งเริ่มรอบ
+            if startRE then
+                startRE:FireServer(curRound)
+            end
+            task.wait(0.2)
+
+            -- 3.2 ลูปสังหารศัตรู/บอสในรอบด้วยดาเมจ 9.99e18 จนกว่าห้องจะสะอาด 100%
+            local loopStart = tick()
+            while tick() - loopStart < 12 do
+                -- Auto God Mode ป้องกันผู้เล่นตายขณะสู้
+                pcall(function()
+                    local char = LocalPlayer.Character
+                    if char then
+                        local hum = char:FindFirstChildOfClass("Humanoid")
+                        if hum then hum.Health = hum.MaxHealth end
+                    end
+                    LocalPlayer:SetAttribute("Dead", false)
+                end)
+
+                -- ฟาดศัตรูทุกตัวในห้อง
+                local killed = ClearAllDungeonEnemiesInstant()
+
+                -- ดูดแร่และรางวัล
+                CollectDungeonLoot()
+
+                -- ส่งคำสั่งผ่านรอบ
+                if compRF then
+                    pcall(function() compRF:InvokeServer(curRound) end)
+                end
+
+                -- ถ้าไม่มีศัตรูเหลือ และรันไปแล้วอย่างน้อย 0.4s
+                if killed == 0 and (tick() - loopStart > 0.4) then
+                    break
+                end
+
+                task.wait(0.18)
+            end
+
+            update(string.format("✅ ชนะรอบที่ %d สำเร็จ!", curRound))
+            task.wait(0.25)
+        end
+
+        -- 4. ดูดแร่และของรางวัลรอบสุดท้าย
+        CollectDungeonLoot()
+        update(string.format("🏆 เอาชนะดันเจี้ยนชั้น %s สำเร็จเรียบร้อย 100%!", bracketStr))
+        success = true
+    end)
+
+    isDungeonRunning = false
+    return success
+end
+
+-- 2. Tab: ดันเจี้ยนหอคอย (Dungeon / Ice Tower)
+local DungeonPage = CreatePage("Dungeon")
+
+-- Status Card
+local DungeonStatusCard = Instance.new("Frame")
+DungeonStatusCard.Name = "DungeonStatusCard"
+DungeonStatusCard.Size = UDim2.new(0.96, 0, 0, 52)
+DungeonStatusCard.BackgroundColor3 = Color3.fromRGB(20, 24, 34)
+DungeonStatusCard.BorderSizePixel = 0
+DungeonStatusCard.Parent = DungeonPage
+
+local DSCorner = Instance.new("UICorner")
+DSCorner.CornerRadius = UDim.new(0, 8)
+DSCorner.Parent = DungeonStatusCard
+
+local DSStroke = Instance.new("UIStroke")
+DSStroke.Color = Color3.fromRGB(50, 80, 140)
+DSStroke.Thickness = 1
+DSStroke.Parent = DungeonStatusCard
+
+local DungeonStatusLabel = Instance.new("TextLabel")
+DungeonStatusLabel.Name = "DungeonStatusLabel"
+DungeonStatusLabel.Size = UDim2.new(1, -20, 1, 0)
+DungeonStatusLabel.Position = UDim2.new(0, 10, 0, 0)
+DungeonStatusLabel.BackgroundTransparency = 1
+DungeonStatusLabel.Font = Enum.Font.GothamMedium
+local currentBracket = GetTargetDungeonBracket()
+DungeonStatusLabel.Text = string.format("🏰 สถานะ: พร้อมลุยดันเจี้ยน %s | คลิกปุ่มด้านล่างเพื่อเริ่ม!", currentBracket.BracketStr)
+DungeonStatusLabel.TextColor3 = Color3.fromRGB(180, 220, 255)
+DungeonStatusLabel.TextSize = 10
+DungeonStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+DungeonStatusLabel.TextWrapped = true
+DungeonStatusLabel.Parent = DungeonStatusCard
+
+DungeonStatusUI = DungeonStatusLabel
+
+-- ปุ่มพิเศษ 1: เอาชนะดันเจี้ยน 46~50 ทันที
+CreateButton(DungeonPage, "👑 เอาชนะดันเจี้ยน 46~50 ทันที", "เข้าและเคลียร์รอบ 46, 47, 48, 49, 50 ให้ชนะ 100%", "WIN 46~50", function(btn, desc)
+    if not isDungeonRunning then
+        task.spawn(function()
+            WinDungeonRounds(46, 50, "46~50", function(txt)
+                desc.Text = txt
+            end)
+        end)
+    end
+end)
+
+-- ปุ่มพิเศษ 2: เอาชนะชั้นที่เลือกในเกมทันที
+CreateButton(DungeonPage, "⚡ ชนะชั้นที่เลือกในเกมทันที", "ตรวจจับชั้นที่เลือกในหน้าต่าง UI แล้วเข้าเคลียร์ให้ชนะ", "WIN SELECTED", function(btn, desc)
+    if not isDungeonRunning then
+        task.spawn(function()
+            local b = GetTargetDungeonBracket()
+            WinDungeonRounds(b.StartRound, b.EndRound, b.BracketStr, function(txt)
+                desc.Text = txt
+            end)
+        end)
+    end
+end)
+
+
+
+CreateButton(DungeonPage, "💎 ดูดแร่และรางวัลทั้งหมด (Loot All)", "ดูดแร่และอัญมณีทั้งหมดในดันเจี้ยนทันที", "LOOT ALL", function(btn, desc)
+    CollectDungeonLoot()
+    desc.Text = "ดูดแร่และรางวัลในดันเจี้ยนเรียบร้อย!"
+end)
+
+CreateButton(DungeonPage, "🚪 ออกจากดันเจี้ยน (Exit)", "บังคับออกจาก Dungeon ทันที", "EXIT", function()
+    pcall(function()
+        local exitRE = GetR("Dungeon", "ExitDungeonRE")
+        if exitRE then exitRE:FireServer() end
+        LocalPlayer:SetAttribute("IntoFight", nil)
+        UpdateDungeonStatus("🚪 ออกจากดันเจี้ยนเรียบร้อย")
+    end)
+end)
+
+-- 3. Tab: ปั๊มหมัด & หลอม (Train & Forge)
+local TrainPage = CreatePage("Train")
+CreateToggle(TrainPage, "🥊 Fast Train Power (ปั๊มหมัด)", "Train ที่ Area 6 (Tier สูงสุด x10 Multiplier)", "AutoTrain")
+CreateToggle(TrainPage, "🔨 Fast Auto Forge", "หลอมอาวุธ/เกราะอัตโนมัติ ไม่ต้องรอคัทซีน", "AutoFastForge")
+CreateButton(TrainPage, "🗡️ Craft Mode", "Currently: " .. Cheats.ForgeType, "SWITCH", function(btn, desc)
+    Cheats.ForgeType = (Cheats.ForgeType == "Weapon") and "Armor" or "Weapon"
+    btn.Parent.Title.Text = "Craft Mode: " .. Cheats.ForgeType
+    desc.Text = "Currently: " .. Cheats.ForgeType
+end)
+CreateButton(TrainPage, "🛡️ Safe Sell (ไม่ขาย Ore!)", "ขายเฉพาะอาวุธ/เกราะขยะ ปลอดภัย 100%", "SELL ALL", function(btn, desc)
+    local sold = SafeSellNonEquipped()
+    desc.Text = "Sold " .. tostring(sold) .. " items! Ores safe."
+end)
+
+-- 4. Tab: ตัวละคร & ของขวัญ (Player & Gifts)
+local PlayerPage = CreatePage("Player")
+CreateToggle(PlayerPage, "🛡️ God Mode (เลือดอมตะ)", "เลือดเต็มตลอดเวลา ล็อคไม่ให้ตาย 100%", "GodMode")
+CreateToggle(PlayerPage, "🏃 Speed Hack (วิ่งไว 75)", "Boosts walking speed", "SpeedHack")
+CreateToggle(PlayerPage, "🦘 Infinite Jump", "Jump freely in mid-air", "InfiniteJump")
+CreateToggle(PlayerPage, "🔄 Auto Rebirth", "Rebirths automatically when level is met", "AutoRebirth")
+CreateToggle(PlayerPage, "📈 Auto Max Upgrades", "Buys Train, Luck & OrePack upgrades", "AutoUpgrades")
+CreateButton(PlayerPage, "🎁 Claim All Free Gifts", "รับของขวัญออนไลน์, ออฟไลน์, ซีซั่น, ร้านค้า", "CLAIM ALL", function()
+    pcall(function()
+        local offRE = GetR("Offline", "TryClaimOfflineRewardRE")
+        if offRE then offRE:FireServer() end
+        local onRE = GetR("Online", "TryClaimRE")
+        if onRE then
+            for i = 1, 12 do onRE:FireServer(i) end
+        end
+        local seaD = GetR("Season", "TryClaimDailyTicRE")
+        local seaA = GetR("Season", "TryClaimAllRewardRE")
+        if seaD then seaD:FireServer() end
+        if seaA then seaA:FireServer() end
+        local mkt = GetR("Market", "GetGiftRE")
+        if mkt then mkt:FireServer() end
+    end)
+end)
+
+-- Tab Navigation Logic
+local CurrentTabBtn = nil
+local function SwitchTab(tabName, btn)
+    for name, page in pairs(Pages) do
+        page.Visible = (name == tabName)
+    end
+    if CurrentTabBtn then
+        CurrentTabBtn.BackgroundColor3 = Color3.fromRGB(18, 20, 29)
+        CurrentTabBtn.TextColor3 = Color3.fromRGB(150, 155, 175)
+    end
+    btn.BackgroundColor3 = Color3.fromRGB(38, 48, 72)
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CurrentTabBtn = btn
+end
+
+local Tabs = {
+    {name = "Combat", label = "⚔️ Combat\n(ต่อสู้ & บอส)"},
+    {name = "Dungeon", label = "🏰 Dungeon\n(ดันเจี้ยนล่าสุด)"},
+    {name = "Train", label = "🥊 Train & Forge\n(ปั๊มหมัด & หลอม)"},
+    {name = "Player", label = "👤 Player\n(อมตะ & ของขวัญ)"},
+}
+
+for _, tabInfo in ipairs(Tabs) do
+    local TabBtn = Instance.new("TextButton")
+    TabBtn.Name = tabInfo.name .. "Tab"
+    TabBtn.Size = UDim2.new(0.9, 0, 0, 42)
+    TabBtn.BackgroundColor3 = Color3.fromRGB(18, 20, 29)
+    TabBtn.Font = Enum.Font.GothamBold
+    TabBtn.Text = tabInfo.label
+    TabBtn.TextColor3 = Color3.fromRGB(150, 155, 175)
+    TabBtn.TextSize = 10
+    TabBtn.Parent = TabHolder
+
+    local TCorner = Instance.new("UICorner")
+    TCorner.CornerRadius = UDim.new(0, 8)
+    TCorner.Parent = TabBtn
+
+    TabBtn.MouseButton1Click:Connect(function()
+        SwitchTab(tabInfo.name, TabBtn)
+    end)
+
+    if not CurrentTabBtn then
+        SwitchTab(tabInfo.name, TabBtn)
+    end
+end
+
+-- Keybind toggle (RightShift or RightControl)
+UserInputService.InputBegan:Connect(function(input, processed)
+    if not processed and (input.KeyCode == Enum.KeyCode.RightShift or input.KeyCode == Enum.KeyCode.RightControl) then
+        MainFrame.Visible = not MainFrame.Visible
+    end
+end)
+
+-- =========================================================================
+--                          4. BACKGROUND LOOPS
+-- =========================================================================
+
+
+
+-- Loop 3: Fast Train Power at Best Area (Area 6 x10 Multiplier)
+task.spawn(function()
+    while true do
+        task.wait(0.08)
+        if Cheats.AutoTrain then
+            pcall(function()
+                -- กำหนดและส่งสัญญาณเข้าฝึกที่ Area 6 (Tier สูงสุด x10)
+                local bestArea = 6
+                LocalPlayer:SetAttribute("AutoTrainAreaID", bestArea)
+
+                local intoTrainRE = GetR("Train", "IntoAutoTrainRE")
+                local startTrainRE = GetR("Train", "StartTrainRE")
+                if intoTrainRE then intoTrainRE:FireServer(bestArea) end
+                if startTrainRE then startTrainRE:FireServer() end
+
+                -- พยายามเรียก TrainCTRL โดยตรงถ้ามี (เพื่อรับ Multiplier เต็มๆ)
+                local ranCTRL = false
+                pcall(function()
+                    local TC = require(ReplicatedStorage.CTRL.TrainCTRL)
+                    if TC and TC.TrainOnce then
+                        TC.TrainOnce()
+                        ranCTRL = true
+                    end
+                end)
+
+                -- ถ้า require ไม่ได้ ให้ยิง Remote Train รัวๆ
+                if not ranCTRL then
+                    local trainRE = GetR("Train", "TrainOnceRE")
+                    local dataRF = GetR("Train", "InvokTrainDataListRF")
+                    if trainRE then
+                        if dataRF then
+                            local raw = dataRF:InvokeServer()
+                            if type(raw) == "table" then
+                                for _, itm in ipairs(raw) do
+                                    local u = type(itm) == "table" and (itm.UUID or itm.uuid or itm.id) or itm
+                                    trainRE:FireServer(u)
+                                end
+                            else
+                                trainRE:FireServer()
+                            end
+                        else
+                            trainRE:FireServer()
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- Loop 4: Auto Stage 27 (แร่ระดับ 40+)
+task.spawn(function()
+    while true do
+        task.wait(0.4)
+        if Cheats.AutoStage then
+            pcall(function()
+                local stageRF = GetR("Stage", "StageFinishedRF")
+                local getOreRF = GetR("Stage", "GetOreRF")
+                local claimRE = GetR("Stage", "ClaimedAllOreRE")
+                if stageRF and getOreRF and claimRE then
+                    local drops = stageRF:InvokeServer("Stage_" .. tostring(Cheats.TargetStage))
+                    if drops and type(drops) == "table" then
+                        for oreUUID, _ in pairs(drops) do
+                            getOreRF:InvokeServer(oreUUID)
+                        end
+                        claimRE:FireServer()
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- Loop 5: Auto Ore Magnet (ดูดแร่และหินอัปเกรดทั้งหมด 100% ทั้ง Remote และ CFrame Vacuum)
+task.spawn(function()
+    while true do
+        task.wait(0.2)
+        if Cheats.AutoOreMagnet then
+            pcall(function()
+                local getOreRF = GetR("Stage", "GetOreRF")
+                local stoneRE = GetR("Stage", "GetEnhantStoneRE")
+                local claimRE = GetR("Stage", "ClaimedAllOreRE")
+
+                local char = LocalPlayer.Character
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+
+                local folderNames = {"OreCache", "DropCache", "Drops", "Drop", "Ores", "Debris"}
+
+                -- 1. ดูดแร่จากโฟลเดอร์เก็บแร่ทั้งหมด
+                for _, fName in ipairs(folderNames) do
+                    local folder = workspace:FindFirstChild(fName)
+                    if folder then
+                        for _, item in ipairs(folder:GetChildren()) do
+                            if getOreRF then pcall(function() getOreRF:InvokeServer(item.Name) end) end
+                            if stoneRE then pcall(function() stoneRE:FireServer(item.Name) end) end
+
+                            if hrp then
+                                local p = item:IsA("BasePart") and item or item:FindFirstChildWhichIsA("BasePart")
+                                if p then
+                                    p.CanCollide = false
+                                    p.CFrame = hrp.CFrame
+                                    if firetouchinterest then
+                                        pcall(function()
+                                            firetouchinterest(hrp, p, 0)
+                                            firetouchinterest(hrp, p, 1)
+                                        end)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+
+                -- 2. ดูดแร่และของดรอปที่อาจตกใน Workspace โดยตรง
+                for _, obj in ipairs(workspace:GetChildren()) do
+                    if (obj.Name:find("Ore") or obj.Name:find("Drop") or obj.Name:find("Stone") or obj:GetAttribute("OreID")) and not obj:IsA("Camera") and not obj:IsA("Terrain") then
+                        if getOreRF then pcall(function() getOreRF:InvokeServer(obj.Name) end) end
+                        if stoneRE then pcall(function() stoneRE:FireServer(obj.Name) end) end
+                        if hrp then
+                            local p = obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart")
+                            if p then
+                                p.CanCollide = false
+                                p.CFrame = hrp.CFrame
+                                if firetouchinterest then
+                                    pcall(function()
+                                        firetouchinterest(hrp, p, 0)
+                                        firetouchinterest(hrp, p, 1)
+                                    end)
+                                end
+                            end
+                        end
+                    end
+                end
+
+                -- 3. ยืนยันเคลมแร่ทั้งหมด
+                if claimRE then
+                    pcall(function() claimRE:FireServer() end)
+                end
+            end)
+        end
+    end
+end)
+
+
+
+-- Loop 7: Fast Auto Forge
+task.spawn(function()
+    while true do
+        task.wait(0.4)
+        if Cheats.AutoFastForge then
+            pcall(function()
+                local getDataRF = GetR("Backpack", "GetDataRF")
+                local forgeRF = GetR("Forge", "ForgeRF")
+                if getDataRF and forgeRF then
+                    local data = getDataRF:InvokeServer()
+                    if data and data.have then
+                        local targetOreUUID, maxCount = nil, 0
+                        for uuid, item in pairs(data.have) do
+                            if item.Type == "Ore" and item.Number and item.Number >= 4 then
+                                if item.Number > maxCount then
+                                    targetOreUUID = uuid
+                                    maxCount = item.Number
+                                end
+                            end
+                        end
+                        if targetOreUUID then
+                            forgeRF:InvokeServer({
+                                ConfigType = Cheats.ForgeType,
+                                UUIDList = { [targetOreUUID] = 4 }
+                            })
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- Loop 8: Auto Rebirth
+task.spawn(function()
+    while true do
+        task.wait(1.5)
+        if Cheats.AutoRebirth then
+            pcall(function()
+                local rebRE = GetR("Rebirth", "TryRebirthRE")
+                if rebRE then rebRE:FireServer() end
+            end)
+        end
+    end
+end)
+
+-- Loop 9: Auto Upgrades
+task.spawn(function()
+    while true do
+        task.wait(1.0)
+        if Cheats.AutoUpgrades then
+            pcall(function()
+                local upgRE = GetR("Upgrade", "UpgradeOnceRE")
+                if upgRE then
+                    upgRE:FireServer("Train")
+                    upgRE:FireServer("Luck")
+                    upgRE:FireServer("OrePack")
+                end
+            end)
+        end
+    end
+end)
+
+-- Loop 10: Working God Mode (อมตะเลือดไม่ลด) & Speed
+RunService.Heartbeat:Connect(function()
+    if Cheats.GodMode then
+        pcall(function()
+            -- 1. เรียก HPCTRL ของเกมถ้ามี
+            pcall(function()
+                local hpctrl = require(ReplicatedStorage.CTRL.HPCTRL)
+                if hpctrl and hpctrl.SetCurrentHP and hpctrl.GetMaxHP then
+                    hpctrl.SetCurrentHP(LocalPlayer, hpctrl.GetMaxHP(LocalPlayer))
+                end
+            end)
+
+            -- 2. ฟื้นฟู Humanoid Health
+            local char = LocalPlayer.Character
+            if char then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    hum.Health = hum.MaxHealth
+                end
+            end
+
+            -- 3. รีเซ็ตสถานะ Dead
+            LocalPlayer:SetAttribute("Dead", false)
+        end)
+    end
+
+    if Cheats.SpeedHack then
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChildOfClass("Humanoid") then
+                char:FindFirstChildOfClass("Humanoid").WalkSpeed = Cheats.SpeedValue
+            end
+        end)
+    end
+end)
+
+-- Infinite Jump Hook
+UserInputService.JumpRequest:Connect(function()
+    if Cheats.InfiniteJump then
+        pcall(function()
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChildOfClass("Humanoid") then
+                char:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
+            end
+        end)
+    end
+end)
+
+-- =========================================================================
+--                          ANTI-AFK SYSTEM (BACKGROUND)
+-- =========================================================================
+local VirtualUser = game:GetService("VirtualUser")
+
+-- 1. ปลดการเชื่อมต่อ Idled เดิมของเกมผ่าน getconnections (ถ้า Executor รองรับ)
+pcall(function()
+    if getconnections then
+        for _, conn in ipairs(getconnections(LocalPlayer.Idled)) do
+            conn:Disable()
+        end
+    end
+end)
+
+-- 2. ดักจับจังหวะที่ตัวละครไม่ขยับ (Idled Event) แล้วส่ง Virtual Click ตอบสนองทันที
+LocalPlayer.Idled:Connect(function()
+    pcall(function()
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new(0, 0))
+    end)
+end)
+
+-- 3. Loop กระตุ้นสเตตัสป้องกันหลุดทุกๆ 5 นาที (Active Ping)
+task.spawn(function()
+    while true do
+        task.wait(300)
+        pcall(function()
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new(0, 0))
+        end)
+    end
+end)
+
+print("[RamhyperZen] Script Loaded Successfully! Press RightShift or click floating button to toggle. (Anti-AFK Active)")
